@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { TaskService } from '../../services/task.service';
 
 @Component({
@@ -9,6 +9,10 @@ import { TaskService } from '../../services/task.service';
   imports: [CommonModule, RouterModule],
   template: `
     <div class="page-shell">
+      <div class="topbar">
+        <div></div>
+        <button class="logout-btn" type="button" (click)="logout()">Logout</button>
+      </div>
       <div class="hero-card">
         <div>
           <p class="eyebrow">Enterprise task control center</p>
@@ -37,8 +41,8 @@ import { TaskService } from '../../services/task.service';
             <ul>
               <li *ngFor="let t of tasksByStatus.complete">
                 <span class="task-title">{{ t.title }}</span>
-                <span class="task-user" *ngIf="isAdmin"> - {{ t.userName }} - </span>
-                <button class="edit-btn" (click)="editStatus(t.id,'WIP')">Move</button>
+                <span class="task-user" *ngIf="isAdmin"> - {{ t.userName }}  </span>
+                <!-- <button class="edit-btn" (click)="editStatus(t.id,'WIP')"> Move </button> -->
               </li>
               <li *ngIf="tasksByStatus.complete.length === 0">No tasks</li>
             </ul>
@@ -50,7 +54,9 @@ import { TaskService } from '../../services/task.service';
               <li *ngFor="let t of tasksByStatus.ecuPending">
                 <span class="task-title">{{ t.title }}</span>
                 <span class="task-user" *ngIf="isAdmin"> - {{ t.userName }} - </span>
-                <button class="edit-btn" (click)="editStatus(t.id,'Complete')">Move</button>
+                <!-- <button class="edit-btn" (click)="editStatus(t.id,'Complete')"> Move </button> -->
+                  <button class="edit-btn" (click)="editStatus(t.id,'WIP')"> Move to WIP </button>
+                  <button class="edit-btn" (click)="editStatus(t.id,'Complete')"> Move to Complete </button>
               </li>
               <li *ngIf="tasksByStatus.ecuPending.length === 0">No tasks</li>
             </ul>
@@ -62,7 +68,7 @@ import { TaskService } from '../../services/task.service';
               <li *ngFor="let t of tasksByStatus.wip">
                 <span class="task-title">{{ t.title }}</span>
                 <span class="task-user" *ngIf="isAdmin"> - {{ t.userName }} - </span>
-                <button class="edit-btn" (click)="editStatus(t.id,'ECU Pending')">Move</button>
+                <button class="edit-btn" (click)="editStatus(t.id,'ECU Pending')"> Move </button>
               </li>
               <li *ngIf="tasksByStatus.wip.length === 0">No tasks</li>
             </ul>
@@ -74,7 +80,7 @@ import { TaskService } from '../../services/task.service';
               <li *ngFor="let t of tasksByStatus.pending">
                 <span class="task-title">{{ t.title }}</span>
                 <span class="task-user" *ngIf="isAdmin"> - {{ t.userName }} - </span>
-                <button class="edit-btn" (click)="editStatus(t.id,'WIP')">Move</button>
+                <button class="edit-btn" (click)="editStatus(t.id,'WIP')"> Move </button>
               </li>
               <li *ngIf="tasksByStatus.pending.length === 0">No tasks</li>
             </ul>
@@ -90,6 +96,9 @@ import { TaskService } from '../../services/task.service';
     `.eyebrow{text-transform:uppercase;letter-spacing:.24em;font-size:.72rem;opacity:.85;}`,
     `.muted{opacity:.9;max-width:640px;}`,
     `.primary-btn{background:white;color:#2563eb;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:700;}`,
+    `.topbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;}`,
+    `.logout-btn{background:#ef4444;color:white;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;}`,
+    `.logout-btn:hover{background:#dc2626;}`,
     `.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;}`,
     `.stat-card{background:white;border-radius:20px;padding:20px;box-shadow:0 12px 24px rgba(15,23,42,.08);}`,
     `.stat-card span{display:block;color:#64748b;font-size:.95rem;}`,
@@ -127,7 +136,7 @@ export class DashboardComponent implements OnInit {
     pending: Array<{ id: number; title: string; userName: string }>;
   } = { complete: [], ecuPending: [], wip: [], pending: [] };
 
-  constructor(private taskService: TaskService) {}
+  constructor(private taskService: TaskService, private router: Router) {}
 
   ngOnInit(): void {
     this.initRoleFromJwt();
@@ -159,6 +168,11 @@ export class DashboardComponent implements OnInit {
       next: (res: any) => { this.summary = res ?? {}; },
       error: () => { this.summary = {}; }
     });
+  }
+
+  logout(): void {
+    localStorage.removeItem('token');
+    this.router.navigateByUrl('/login');
   }
 
   editStatus(id: number, status: string): void {

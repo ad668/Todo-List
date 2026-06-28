@@ -50,7 +50,8 @@ public class TasksController : ControllerBase
             t.ResolutionTimeInMinutes,
             t.IsCompleted,
             t.UserId,
-            t.UserName)).ToListAsync();
+            t.UserName,
+            t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);
     }
@@ -72,7 +73,8 @@ public class TasksController : ControllerBase
             t.ResolutionTimeInMinutes,
             t.IsCompleted,
             t.UserId,
-            t.UserName)).ToListAsync();
+            t.UserName,
+            t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);
     }
@@ -89,7 +91,7 @@ public class TasksController : ControllerBase
             return Forbid();
         }
 
-        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName));
+        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
     }
 
     [HttpPost]
@@ -110,13 +112,14 @@ public class TasksController : ControllerBase
             UserId = user.Id,
             UserName = user.Username,
             IsCompleted = false,
-            ResolutionTimeInMinutes = 0
+            ResolutionTimeInMinutes = 0,
+            AuditDescr = string.Empty
         };
 
         _context.Tasks.Add(task);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetTask), new { id = task.Id }, new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName));
+        return CreatedAtAction(nameof(GetTask), new { id = task.Id }, new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
     }
 
     [HttpPut("{id}")]
@@ -131,35 +134,93 @@ public class TasksController : ControllerBase
             return Forbid();
         }
 
+
+        var oldStatus = task.Status;
+        var newStatus = request.Status ?? task.Status;
+        var currentDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
         task.Title = request.Title ?? task.Title;
         task.Description = request.Description ?? task.Description;
         task.TaskType = request.TaskType ?? task.TaskType;
         task.ShiftTime = request.ShiftTime ?? task.ShiftTime;
         task.UpdatedDate = DateTime.UtcNow;
 
-        if (request.IsCompleted.HasValue)
-        {
-            task.IsCompleted = request.IsCompleted.Value;
-        }
-
         if (request.Status != null)
         {
             task.Status = request.Status;
         }
+        if(request.Status == "Complete")
+        {
+            task.IsCompleted=true;
+            task.CompletedDate=DateTime.UtcNow;
+        }
+        // Completion is irreversible: once completed, it can never be reverted.
+        if (request.IsCompleted.HasValue)
+        {
+            if (task.IsCompleted && request.IsCompleted.Value == false)
+            {
+                return BadRequest("Completed task cannot be reverted.");
+            }
 
-        if (task.IsCompleted && task.CompletedDate is null)
-        {
-            task.CompletedDate = DateTime.UtcNow;
-            task.ResolutionTimeInMinutes = (int)((task.CompletedDate.Value - task.CreatedDate).TotalMinutes);
+            task.IsCompleted = request.IsCompleted.Value;
         }
-        else if (!task.IsCompleted && task.CompletedDate is not null)
+
+        
+        
+
+        // Capture audit transitions
+        if (request.Status != null && !string.Equals(oldStatus, newStatus, StringComparison.Ordinal))
         {
-            task.CompletedDate = null;
-            task.ResolutionTimeInMinutes = 0;
+            // TCS Pending -> WIP
+            if (oldStatus == "TCS Pending" && newStatus == "WIP")
+            {
+                task.AuditDescr = string.IsNullOrWhiteSpace(task.AuditDescr)
+                    ? $"Task is move from pending -> WIP --{currentDate}"
+                    : $"{task.AuditDescr}Task is move from pending -> WIP --{currentDate}";
+            }
+
+            // WIP -> ECU Pending
+            if (oldStatus == "WIP" && newStatus == "ECU Pending")
+            {
+                task.AuditDescr = string.IsNullOrWhiteSpace(task.AuditDescr)
+                    ? $"task is move from WIP -> ECU pending -- {currentDate}"
+                    : $"{task.AuditDescr} || task is move from WIP -> ECU pending -- {currentDate}";
+            }
+            if (oldStatus == "ECU Pending" && newStatus == "WIP")
+            {
+                task.AuditDescr = string.IsNullOrWhiteSpace(task.AuditDescr)
+                    ? $"task is move from ECU Pending -> WIP -- {currentDate}"
+                    : $"{task.AuditDescr} || task is move from ECU Pending -> WIP -- {currentDate}";
+            }
+            if (oldStatus == "ECU Pending" && newStatus == "Complete")
+            {
+                task.AuditDescr = string.IsNullOrWhiteSpace(task.AuditDescr)
+                    ? $"task is move from ECU Pending -> Completed -- {currentDate}"
+                    : $"{task.AuditDescr} || task is move from ECU Pending -> Completed -- {currentDate}";
+            }
         }
+
+        // Set completion metadata only once.
+        // if (task.IsCompleted)
+        // {
+            if (task.CompletedDate is not null)
+            {
+                // task.CompletedDate = DateTime.UtcNow;
+                task.ResolutionTimeInMinutes = (int)((task.CompletedDate.Value - task.CreatedDate).TotalMinutes);
+            }
+        // }
+        // else
+        // {
+        //     // Not completed => ensure completion metadata is empty.
+        //     if (task.CompletedDate is not null)
+        //     {
+        //         task.CompletedDate = null;
+        //         task.ResolutionTimeInMinutes = 0;
+        //     }
+        // }
 
         await _context.SaveChangesAsync();
-        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName));
+        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
     }
 
     [HttpDelete("{id}")]
@@ -203,8 +264,10 @@ public class TasksController : ControllerBase
             t.ResolutionTimeInMinutes,
             t.IsCompleted,
             t.UserId,
-            t.UserName)).ToListAsync();
+            t.UserName,
+            t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);
     }
 }
+

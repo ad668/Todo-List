@@ -16,8 +16,10 @@ builder.Services.AddSwaggerGen();
 // ---------------- DB ----------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+// builder.Services.AddDbContext<AppDbContext>(options =>
+//     options.UseNpgsql(connectionString));
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseSqlServer(connectionString));
 
 // ---------------- JWT ----------------
 builder.Services.AddScoped<JwtService>();

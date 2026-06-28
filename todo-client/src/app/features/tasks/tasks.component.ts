@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../services/task.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-tasks',
@@ -9,6 +10,11 @@ import { TaskService } from '../../services/task.service';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="page-shell">
+      <div class="topbar">
+        <div></div>
+        <button class="back-btn" type="button" (click)="backToDashboard()">Back to Dashboard</button>
+        <button class="logout-btn" type="button" (click)="logout()">Logout</button>
+      </div>
       <div class="toolbar">
         <div>
           <p class="eyebrow">Task board</p>
@@ -79,6 +85,11 @@ import { TaskService } from '../../services/task.service';
     `.form-card{background:white;border-radius:20px;padding:18px;box-shadow:0 12px 24px rgba(15,23,42,.08);}`,
     `.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}`,
     `label{display:grid;gap:8px;}`,
+    `.topbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;}`,
+    `.back-btn{background:#4CAF50;color:white;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;}`,
+    `.back-btn:hover{background:#4CAF50;}`,
+    `.logout-btn{background:#ef4444;color:white;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;}`,
+    `.logout-btn:hover{background:#45a049;}`,
     `span{font-size:.92rem;color:#0f172a;font-weight:700;}`,
     `input,select{border:1px solid #cbd5e1;border-radius:12px;padding:12px 12px;font-size:1rem;}`,
     `.actions{display:flex;gap:12px;margin-top:16px;align-items:center;}`,
@@ -89,6 +100,18 @@ import { TaskService } from '../../services/task.service';
   ]
 })
 export class TasksComponent {
+  constructor(private taskService: TaskService, private router: Router) {}
+
+  backToDashboard(): void {
+    this.router.navigateByUrl('/dashboard');
+  }
+
+  logout(): void {
+
+    localStorage.removeItem('token');
+    this.router.navigateByUrl('/login');
+  }
+
   title = '';
   description = '';
   taskType = 'Other';
@@ -99,7 +122,7 @@ export class TasksComponent {
   message = '';
   tasks: Array<{ title: string; status: string; shiftTime: string }> = [];
 
-  constructor(private taskService: TaskService) {}
+
 
 
   reset() {
