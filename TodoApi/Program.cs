@@ -82,6 +82,13 @@ using (var scope = app.Services.CreateScope())
 
     await db.Database.EnsureCreatedAsync();
 
+    await db.Database.ExecuteSqlRawAsync(@"
+        IF COL_LENGTH('Tasks', 'AssignedToUserName') IS NULL
+        BEGIN
+            ALTER TABLE [Tasks] ADD [AssignedToUserName] nvarchar(max) NOT NULL CONSTRAINT [DF_Tasks_AssignedToUserName] DEFAULT '';
+        END
+    ");
+
     var admin = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
 
     if (admin is null)

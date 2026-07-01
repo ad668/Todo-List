@@ -22,12 +22,19 @@ export class TaskService {
     return this.http.get<any[]>(`${this.apiUrl}/tasks`, { headers });
   }
 
+  getUsers(): Observable<any[]> {
+    const token = localStorage.getItem('token');
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return this.http.get<any[]>(`${this.apiUrl}/auth/users`, { headers });
+  }
+
   createTask(payload: {
     title: string;
     description: string;
     taskType: string;
     status: string;
     shiftTime: string;
+    assignedToUserName?: string;
   }): Observable<any> {
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });

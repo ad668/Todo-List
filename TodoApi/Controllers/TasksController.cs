@@ -29,7 +29,7 @@ public class TasksController : ControllerBase
 
         if (role != "Admin")
         {
-            query = query.Where(t => t.UserName == userName);
+            query = query.Where(t => t.UserName == userName || t.AssignedToUserName == userName);
         }
 
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(t => t.Status == status);
@@ -51,6 +51,7 @@ public class TasksController : ControllerBase
             t.IsCompleted,
             t.UserId,
             t.UserName,
+            t.AssignedToUserName,
             t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);
@@ -60,7 +61,7 @@ public class TasksController : ControllerBase
     public async Task<ActionResult<IEnumerable<TaskResponse>>> GetMyTasks()
     {
         var userName = User.Identity?.Name ?? string.Empty;
-        var tasks = await _context.Tasks.Where(t => t.UserName == userName).OrderByDescending(t => t.CreatedDate).Select(t => new TaskResponse(
+        var tasks = await _context.Tasks.Where(t => t.UserName == userName || t.AssignedToUserName == userName).OrderByDescending(t => t.CreatedDate).Select(t => new TaskResponse(
             t.Id,
             t.Title,
             t.Description,
@@ -74,6 +75,7 @@ public class TasksController : ControllerBase
             t.IsCompleted,
             t.UserId,
             t.UserName,
+            t.AssignedToUserName,
             t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);
@@ -86,12 +88,12 @@ public class TasksController : ControllerBase
         if (task == null) return NotFound();
 
         var role = User.FindFirstValue(ClaimTypes.Role);
-        if (role != "Admin" && task.UserName != User.Identity?.Name)
+        if (role != "Admin" && task.UserName != User.Identity?.Name && task.AssignedToUserName != User.Identity?.Name)
         {
             return Forbid();
         }
 
-        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
+        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AssignedToUserName, task.AuditDescr));
     }
 
     [HttpPost]
@@ -111,6 +113,7 @@ public class TasksController : ControllerBase
             CreatedDate = DateTime.UtcNow,
             UserId = user.Id,
             UserName = user.Username,
+            AssignedToUserName = string.IsNullOrWhiteSpace(request.AssignedToUserName) ? string.Empty : request.AssignedToUserName.Trim(),
             IsCompleted = false,
             ResolutionTimeInMinutes = 0,
             AuditDescr = string.Empty
@@ -119,7 +122,7 @@ public class TasksController : ControllerBase
         _context.Tasks.Add(task);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetTask), new { id = task.Id }, new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
+        return CreatedAtAction(nameof(GetTask), new { id = task.Id }, new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AssignedToUserName, task.AuditDescr));
     }
 
     [HttpPut("{id}")]
@@ -129,11 +132,10 @@ public class TasksController : ControllerBase
         if (task == null) return NotFound();
 
         var role = User.FindFirstValue(ClaimTypes.Role);
-        if (role != "Admin" && task.UserName != User.Identity?.Name)
+        if (role != "Admin" && task.UserName != User.Identity?.Name && task.AssignedToUserName != User.Identity?.Name)
         {
             return Forbid();
         }
-
 
         var oldStatus = task.Status;
         var newStatus = request.Status ?? task.Status;
@@ -143,6 +145,10 @@ public class TasksController : ControllerBase
         task.Description = request.Description ?? task.Description;
         task.TaskType = request.TaskType ?? task.TaskType;
         task.ShiftTime = request.ShiftTime ?? task.ShiftTime;
+        if (request.AssignedToUserName != null)
+        {
+            task.AssignedToUserName = request.AssignedToUserName.Trim();
+        }
         task.UpdatedDate = DateTime.UtcNow;
 
         if (request.Status != null)
@@ -220,7 +226,7 @@ public class TasksController : ControllerBase
         // }
 
         await _context.SaveChangesAsync();
-        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AuditDescr));
+        return Ok(new TaskResponse(task.Id, task.Title, task.Description, task.TaskType, task.Status, task.ShiftTime, task.CreatedDate, task.UpdatedDate, task.CompletedDate, task.ResolutionTimeInMinutes, task.IsCompleted, task.UserId, task.UserName, task.AssignedToUserName, task.AuditDescr));
     }
 
     [HttpDelete("{id}")]
@@ -230,7 +236,7 @@ public class TasksController : ControllerBase
         if (task == null) return NotFound();
 
         var role = User.FindFirstValue(ClaimTypes.Role);
-        if (role != "Admin" && task.UserName != User.Identity?.Name)
+        if (role != "Admin" && task.UserName != User.Identity?.Name && task.AssignedToUserName != User.Identity?.Name)
         {
             return Forbid();
         }
@@ -248,7 +254,7 @@ public class TasksController : ControllerBase
         IQueryable<TaskItem> query = _context.Tasks.Where(t => t.Status == status);
         if (role != "Admin")
         {
-            query = query.Where(t => t.UserName == userName);
+            query = query.Where(t => t.UserName == userName || t.AssignedToUserName == userName);
         }
 
         var tasks = await query.OrderByDescending(t => t.CreatedDate).Select(t => new TaskResponse(
@@ -265,6 +271,7 @@ public class TasksController : ControllerBase
             t.IsCompleted,
             t.UserId,
             t.UserName,
+            t.AssignedToUserName,
             t.AuditDescr)).ToListAsync();
 
         return Ok(tasks);

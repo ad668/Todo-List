@@ -54,7 +54,7 @@ public class DashboardController : ControllerBase
 
         if (role != "Admin")
         {
-            query = query.Where(t => t.UserName == userName);
+            query = query.Where(t => t.UserName == userName || t.AssignedToUserName == userName);
         }
 
         var byStatus = await query.GroupBy(t => t.Status).Select(g => new { status = g.Key, count = g.Count() }).ToListAsync();

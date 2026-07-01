@@ -15,6 +15,7 @@ public class TaskItem
     public bool IsCompleted { get; set; }
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
+    public string AssignedToUserName { get; set; } = string.Empty;
 
     // Captures state transitions like:
     // "Task is move from pending -> WIP --2026-... || task is move from WIP -> ECU pending -- ..."

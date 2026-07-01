@@ -21,6 +21,18 @@ public class AuthController : ControllerBase
         _jwtService = jwtService;
     }
 
+    [Authorize]
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers()
+    {
+        var users = await _context.Users
+            .OrderBy(u => u.Username)
+            .Select(u => new { u.Id, u.Username })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
